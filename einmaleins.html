@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>1 × 1 Lernkarten</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Nunito+Sans:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fdf6e3;
+    --paper: #fffdf7;
+    --shadow1: #e8d5a3;
+    --shadow2: #d4bc85;
+    --shadow3: #bfa86a;
+    --ink: #2d2417;
+    --accent: #e85d2f;
+    --accent2: #4a9e6e;
+    --accent3: #3b6dbf;
+    --highlight: #f5c842;
+    --muted: #8a7a5a;
+    --radius: 20px;
+    --card-w: min(85vw, 380px);
+    --card-h: min(35vh, 200px);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: var(--bg);
+    font-family: 'Nunito', sans-serif;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 80% 50% at 20% 80%, #f5e8c040, transparent),
+      radial-gradient(ellipse 60% 60% at 80% 20%, #e8d5a340, transparent);
+    pointer-events: none;
+  }
+
+  /* ── SCREENS ── */
+  .screen {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: flex-start;
+    padding: 20px;
+    padding-top: clamp(24px, 6vh, 56px);
+    transition: opacity .4s, transform .4s;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; transform: scale(.96); }
+
+  /* ══════════════════════════════
+     SELECTION SCREEN
+  ══════════════════════════════ */
+  #screen-select { gap: 24px; }
+
+  .title-badge {
+    background: var(--ink);
+    color: var(--highlight);
+    font-size: clamp(1.6rem, 6vw, 2.4rem);
+    font-weight: 900;
+    padding: 10px 28px;
+    border-radius: 50px;
+    letter-spacing: .04em;
+    box-shadow: 4px 4px 0 var(--accent);
+  }
+  .subtitle {
+    font-size: clamp(1rem, 4vw, 1.2rem);
+    color: var(--muted);
+    font-weight: 700;
+    text-align: center;
+  }
+
+  .reihen-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    width: 100%;
+    max-width: 380px;
+  }
+
+  .reihe-btn {
+    position: relative;
+    background: var(--paper);
+    border: 3px solid var(--shadow1);
+    border-radius: 14px;
+    padding: 14px 8px;
+    cursor: pointer;
+    font-family: 'Nunito', sans-serif;
+    font-size: clamp(1.1rem, 4vw, 1.4rem);
+    font-weight: 800;
+    color: var(--ink);
+    box-shadow: 3px 3px 0 var(--shadow1);
+    transition: all .15s;
+    user-select: none;
+  }
+  .reihe-btn:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 var(--shadow1); }
+  .reihe-btn.selected {
+    background: var(--highlight);
+    border-color: var(--ink);
+    box-shadow: 3px 3px 0 var(--ink);
+    color: var(--ink);
+  }
+  .reihe-btn .check {
+    position: absolute; top: 4px; right: 6px;
+    font-size: .85rem;
+    opacity: 0; transition: opacity .15s;
+  }
+  .reihe-btn.selected .check { opacity: 1; }
+
+  .select-all-row {
+    display: flex; gap: 10px;
+    width: 100%; max-width: 380px;
+  }
+  .ghost-btn {
+    flex: 1;
+    background: transparent;
+    border: 2.5px solid var(--shadow2);
+    border-radius: 10px;
+    padding: 8px;
+    font-family: 'Nunito', sans-serif;
+    font-size: .9rem;
+    font-weight: 700;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .ghost-btn:hover { border-color: var(--ink); color: var(--ink); }
+
+  .start-btn {
+    background: var(--accent);
+    color: #fff;
+    border: 3px solid var(--ink);
+    border-radius: 50px;
+    padding: 16px 48px;
+    font-family: 'Nunito', sans-serif;
+    font-size: clamp(1.2rem, 5vw, 1.6rem);
+    font-weight: 900;
+    cursor: pointer;
+    box-shadow: 4px 4px 0 var(--ink);
+    transition: all .15s;
+    letter-spacing: .04em;
+  }
+  .start-btn:hover { background: #d44d20; }
+  .start-btn:active { transform: translate(2px,2px); box-shadow: 2px 2px 0 var(--ink); }
+  .start-btn:disabled { background: var(--shadow1); color: var(--muted); box-shadow: 2px 2px 0 var(--shadow2); cursor: not-allowed; }
+
+  /* ══════════════════════════════
+     CARD SCREEN
+  ══════════════════════════════ */
+  #screen-cards {
+    gap: 10px;
+  }
+
+  .top-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    width: 100%; max-width: 460px;
+    flex-shrink: 0;
+  }
+  .back-btn {
+    background: var(--paper);
+    border: 2.5px solid var(--shadow2);
+    border-radius: 50px;
+    padding: 8px 18px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--ink);
+    cursor: pointer;
+    box-shadow: 2px 2px 0 var(--shadow2);
+    transition: all .15s;
+  }
+  .back-btn:active { transform: translate(1px,1px); box-shadow: 1px 1px 0 var(--shadow2); }
+
+  .progress-text {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--muted);
+  }
+
+  .progress-bar-wrap {
+    width: 100%; max-width: 380px;
+    height: 8px;
+    background: var(--shadow1);
+    border-radius: 99px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: var(--accent2);
+    border-radius: 99px;
+    transition: width .35s ease;
+  }
+
+  /* ── CARD STACK ── */
+  .stack-wrapper {
+    position: relative;
+    width: var(--card-w);
+    height: var(--card-h);
+    flex-shrink: 0;
+  }
+
+  .card-shadow {
+    position: absolute;
+    width: var(--card-w);
+    height: var(--card-h);
+    border-radius: var(--radius);
+    border: 3px solid var(--shadow1);
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  .card-shadow:nth-child(1) { background: var(--shadow3); top: 12px; z-index: 0; transform: translateX(-50%) rotate(2.5deg); }
+  .card-shadow:nth-child(2) { background: var(--shadow2); top: 6px; z-index: 1; transform: translateX(-50%) rotate(-1.5deg); }
+  .card-shadow:nth-child(3) { background: var(--shadow1); top: 0; z-index: 2; transform: translateX(-50%) rotate(1deg); }
+
+  /* ── ANSWER CARD ── */
+  .answer-card {
+    position: absolute;
+    width: var(--card-w);
+    height: var(--card-h);
+    left: 50%; top: 0;
+    transform: translateX(-50%);
+    z-index: 10;
+    border-radius: var(--radius);
+    border: 3px solid var(--ink);
+    background: var(--paper);
+    box-shadow: 5px 5px 0 var(--shadow2), 0 8px 32px #0002;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    transition: background .25s, border-color .25s, box-shadow .25s;
+  }
+  .answer-card.correct {
+    background: #d4f5e3;
+    border-color: var(--accent2);
+    box-shadow: 5px 5px 0 var(--accent2), 0 8px 32px #0002;
+  }
+  .answer-card.wrong {
+    background: #ffe0d8;
+    border-color: var(--accent);
+    box-shadow: 5px 5px 0 var(--accent), 0 8px 32px #0002;
+    animation: shake .42s ease;
+  }
+
+  @keyframes shake {
+    0%,100% { transform: translateX(-50%); }
+    20%      { transform: translateX(calc(-50% - 12px)); }
+    40%      { transform: translateX(calc(-50% + 12px)); }
+    60%      { transform: translateX(calc(-50% - 7px)); }
+    80%      { transform: translateX(calc(-50% + 7px)); }
+  }
+
+  @keyframes cardIn {
+    0%   { transform: translateX(-50%) scale(.88); opacity: 0; }
+    100% { transform: translateX(-50%) scale(1);   opacity: 1; }
+  }
+  .answer-card.card-enter { animation: cardIn .35s cubic-bezier(0,.8,.3,1) forwards; }
+
+  .card-label {
+    font-size: .85rem;
+    font-weight: 700;
+    color: var(--muted);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .card-question {
+    font-size: clamp(2.2rem, 9vw, 3.4rem);
+    font-weight: 900;
+    color: var(--ink);
+    line-height: 1;
+  }
+  .card-feedback {
+    font-size: clamp(.85rem, 3.5vw, 1.05rem);
+    font-weight: 700;
+    margin-top: 10px;
+    min-height: 1.4em;
+    opacity: 0;
+    transition: opacity .2s;
+  }
+  .answer-card.wrong   .card-feedback { opacity: 1; color: var(--accent); }
+  .answer-card.correct .card-feedback { opacity: 1; color: var(--accent2); }
+
+  /* ── ANSWER DISPLAY ── */
+  .answer-display {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--card-w);
+    height: 54px;
+    background: var(--paper);
+    border: 3px solid var(--shadow2);
+    border-radius: 14px;
+    box-shadow: 3px 3px 0 var(--shadow1);
+    font-size: 2rem;
+    font-weight: 900;
+    color: var(--ink);
+    flex-shrink: 0;
+    transition: border-color .2s;
+  }
+  .answer-display.empty {
+    color: var(--muted);
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: .03em;
+  }
+
+  /* ── NUMPAD ── */
+  .numpad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    width: var(--card-w);
+    flex-shrink: 0;
+  }
+
+  .num-btn {
+    background: var(--paper);
+    border: 3px solid var(--shadow1);
+    border-radius: 14px;
+    height: clamp(46px, 8.5vh, 68px);
+    font-family: 'Nunito', sans-serif;
+    font-size: clamp(1.3rem, 5vw, 1.8rem);
+    font-weight: 800;
+    color: var(--ink);
+    cursor: pointer;
+    box-shadow: 3px 3px 0 var(--shadow1);
+    transition: all .1s;
+    user-select: none;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .num-btn:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 var(--shadow1); }
+
+  .del-btn {
+    background: #fff0eb;
+    border-color: var(--shadow2);
+    box-shadow: 3px 3px 0 var(--shadow2);
+    font-size: clamp(1rem, 4vw, 1.4rem);
+    color: var(--accent);
+  }
+  .check-btn {
+    background: var(--accent2);
+    border-color: var(--ink);
+    box-shadow: 3px 3px 0 var(--ink);
+    color: #fff;
+    font-size: clamp(1.4rem, 5vw, 2rem);
+  }
+  .check-btn:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 var(--ink); }
+  .num-btn:disabled, .num-btn.disabled {
+    opacity: .4;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: 3px 3px 0 var(--shadow1) !important;
+  }
+
+  /* ── DONE SCREEN ── */
+  #screen-done { gap: 16px; text-align: center; }
+  .done-emoji { font-size: 3.5rem; }
+  .done-title { font-size: clamp(1.8rem, 7vw, 2.8rem); font-weight: 900; color: var(--ink); }
+  .done-msg { font-size: clamp(1rem, 4vw, 1.2rem); font-weight: 700; color: var(--muted); max-width: 320px; }
+
+  /* ── SCORE CARD ── */
+  .score-card {
+    background: var(--paper);
+    border: 3px solid var(--shadow2);
+    border-radius: var(--radius);
+    box-shadow: 4px 4px 0 var(--shadow1);
+    padding: 16px 28px;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    width: min(85vw, 340px);
+  }
+  .score-dots {
+    display: flex; gap: 6px; flex-wrap: wrap; justify-content: center;
+    max-width: 260px;
+  }
+  .score-dot {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    border: 2.5px solid var(--ink);
+  }
+  .score-dot.ok  { background: var(--accent2); }
+  .score-dot.err { background: var(--accent); }
+  .score-fraction {
+    font-size: clamp(1.4rem, 6vw, 2rem);
+    font-weight: 900;
+    color: var(--ink);
+  }
+  .score-fraction span { color: var(--muted); font-size: .75em; }
+
+  .done-btns { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+
+  /* ── CONFETTI ── */
+  @keyframes confettiFall {
+    0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+    85%  { opacity: 1; }
+    100% { transform: translateY(110vh) rotate(700deg); opacity: 0; }
+  }
+  @keyframes confettiWiggle {
+    0%,100% { margin-left: 0; }
+    25%     { margin-left: 12px; }
+    75%     { margin-left: -12px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════ SELECTION SCREEN ═══════════ -->
+<div class="screen" id="screen-select">
+  <div class="title-badge">1 × 1</div>
+  <div class="subtitle">Welche Reihen willst du üben?</div>
+
+  <div class="reihen-grid" id="reihen-grid">
+    <!-- filled by JS -->
+  </div>
+
+  <div class="select-all-row">
+    <button class="ghost-btn" onclick="selectAll()">Alle auswählen</button>
+    <button class="ghost-btn" onclick="selectNone()">Keine</button>
+  </div>
+
+  <button class="start-btn" id="start-btn" onclick="startLearning()" disabled>
+    Los! 🚀
+  </button>
+</div>
+
+<!-- ═══════════ CARDS SCREEN ═══════════ -->
+<div class="screen hidden" id="screen-cards">
+  <div class="top-bar">
+    <button class="back-btn" onclick="goBack()">← Auswahl</button>
+    <div class="progress-text" id="progress-text">1 / 20</div>
+  </div>
+
+  <div class="progress-bar-wrap">
+    <div class="progress-bar-fill" id="progress-bar" style="width:0%"></div>
+  </div>
+
+  <div class="stack-wrapper" id="stack-wrapper">
+    <div class="card-shadow"></div>
+    <div class="card-shadow"></div>
+    <div class="card-shadow"></div>
+    <!-- active card injected here -->
+  </div>
+
+  <div class="answer-display empty" id="answer-display">Deine Antwort</div>
+
+  <div class="numpad" id="numpad">
+    <button class="num-btn" onclick="pressNum('7')">7</button>
+    <button class="num-btn" onclick="pressNum('8')">8</button>
+    <button class="num-btn" onclick="pressNum('9')">9</button>
+    <button class="num-btn" onclick="pressNum('4')">4</button>
+    <button class="num-btn" onclick="pressNum('5')">5</button>
+    <button class="num-btn" onclick="pressNum('6')">6</button>
+    <button class="num-btn" onclick="pressNum('1')">1</button>
+    <button class="num-btn" onclick="pressNum('2')">2</button>
+    <button class="num-btn" onclick="pressNum('3')">3</button>
+    <button class="num-btn del-btn" onclick="pressNum('del')">⌫</button>
+    <button class="num-btn" onclick="pressNum('0')">0</button>
+    <button class="num-btn check-btn" onclick="pressNum('check')">✓</button>
+  </div>
+</div>
+
+<!-- ═══════════ DONE SCREEN ═══════════ -->
+<div class="screen hidden" id="screen-done">
+  <div class="done-emoji" id="done-emoji">🎉</div>
+  <div class="done-title" id="done-title">Super gemacht!</div>
+  <div class="done-msg" id="done-msg"></div>
+  <div class="score-card">
+    <div class="score-dots" id="score-dots"></div>
+    <div class="score-fraction" id="score-fraction"></div>
+  </div>
+  <div class="done-btns">
+    <button class="start-btn" onclick="restartSame()">Nochmal! 🔁</button>
+    <button class="back-btn" style="font-size:1rem;padding:12px 28px" onclick="goBack()">← Neue Auswahl</button>
+  </div>
+</div>
+
+<script>
+  /* ════════════════════════════════
+     STATE
+  ════════════════════════════════ */
+  const REIHEN = [2,3,4,5,6,7,8,9,10];
+  const MAX_CARDS = 10;
+  let selected = new Set();
+  let cards = [];
+  let idx = 0;
+  let currentInput = '';
+  let answered = false;
+  let advanceTimer = null;
+  let results = []; // true = correct on first try, false = wrong
+
+  /* ════════════════════════════════
+     SELECTION SCREEN
+  ════════════════════════════════ */
+  const grid = document.getElementById('reihen-grid');
+  REIHEN.forEach(r => {
+    const btn = document.createElement('button');
+    btn.className = 'reihe-btn';
+    btn.innerHTML = `${r}er <span class="check">✓</span>`;
+    btn.onclick = () => toggleReihe(r, btn);
+    grid.appendChild(btn);
+  });
+
+  function toggleReihe(r, btn) {
+    if (selected.has(r)) { selected.delete(r); btn.classList.remove('selected'); }
+    else { selected.add(r); btn.classList.add('selected'); }
+    document.getElementById('start-btn').disabled = selected.size === 0;
+  }
+
+  function selectAll() {
+    selected.clear();
+    grid.querySelectorAll('.reihe-btn').forEach((btn, i) => {
+      selected.add(REIHEN[i]);
+      btn.classList.add('selected');
+    });
+    document.getElementById('start-btn').disabled = false;
+  }
+  function selectNone() {
+    selected.clear();
+    grid.querySelectorAll('.reihe-btn').forEach(btn => btn.classList.remove('selected'));
+    document.getElementById('start-btn').disabled = true;
+  }
+
+  /* ════════════════════════════════
+     CARD GENERATION
+  ════════════════════════════════ */
+  function buildCards() {
+    const raw = [];
+    selected.forEach(r => {
+      for (let i = 1; i <= 10; i++) raw.push({ a: r, b: i, ans: r * i });
+    });
+    for (let i = raw.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [raw[i], raw[j]] = [raw[j], raw[i]];
+    }
+    return raw.slice(0, MAX_CARDS);
+  }
+
+  /* ════════════════════════════════
+     SCREEN TRANSITIONS
+  ════════════════════════════════ */
+  function show(id) {
+    ['screen-select','screen-cards','screen-done'].forEach(s => {
+      document.getElementById(s).classList.toggle('hidden', s !== id);
+    });
+  }
+
+  function startLearning() {
+    cards = buildCards();
+    idx = 0;
+    results = [];
+    show('screen-cards');
+    renderCard(false);
+  }
+  function goBack() { show('screen-select'); }
+  function restartSame() {
+    cards = buildCards();
+    idx = 0;
+    results = [];
+    show('screen-cards');
+    renderCard(false);
+  }
+
+  /* ════════════════════════════════
+     CARD RENDERING
+  ════════════════════════════════ */
+  function renderCard(enter = true) {
+    clearTimeout(advanceTimer);
+    currentInput = '';
+    answered = false;
+    setNumpadDisabled(false);
+    updateDisplay();
+
+    const wrapper = document.getElementById('stack-wrapper');
+    const old = wrapper.querySelector('.answer-card');
+    if (old) old.remove();
+
+    if (idx >= cards.length) {
+      showResults();
+      return;
+    }
+
+    const c = cards[idx];
+    const total = cards.length;
+    const pct = Math.round((idx / total) * 100);
+    document.getElementById('progress-text').textContent = `${idx + 1} / ${total}`;
+    document.getElementById('progress-bar').style.width = pct + '%';
+
+    const card = document.createElement('div');
+    card.className = 'answer-card' + (enter ? ' card-enter' : '');
+    card.innerHTML = `
+      <div class="card-label">Aufgabe</div>
+      <div class="card-question">${c.a} × ${c.b} = ?</div>
+      <div class="card-feedback" id="card-feedback"></div>
+    `;
+    wrapper.appendChild(card);
+  }
+
+  /* ════════════════════════════════
+     NUMPAD INPUT
+  ════════════════════════════════ */
+  function pressNum(val) {
+    if (answered) return;
+
+    if (val === 'del') {
+      currentInput = currentInput.slice(0, -1);
+    } else if (val === 'check') {
+      if (currentInput === '') return;
+      checkAnswer();
+      return;
+    } else {
+      if (currentInput.length >= 3) return; // max 3 digits (largest: 10×10=100)
+      currentInput += val;
+    }
+    updateDisplay();
+  }
+
+  function updateDisplay() {
+    const el = document.getElementById('answer-display');
+    if (currentInput === '') {
+      el.textContent = 'Deine Antwort';
+      el.classList.add('empty');
+    } else {
+      el.textContent = currentInput;
+      el.classList.remove('empty');
+    }
+  }
+
+  function setNumpadDisabled(disabled) {
+    document.querySelectorAll('#numpad .num-btn').forEach(btn => {
+      btn.classList.toggle('disabled', disabled);
+    });
+  }
+
+  /* ════════════════════════════════
+     ANSWER CHECKING
+  ════════════════════════════════ */
+  function checkAnswer() {
+    const c = cards[idx];
+    const userAns = parseInt(currentInput, 10);
+    const card = document.querySelector('.answer-card');
+    const feedback = document.getElementById('card-feedback');
+
+    answered = true;
+    setNumpadDisabled(true);
+
+    if (userAns === c.ans) {
+      results.push(true);
+      card.classList.add('correct');
+      feedback.textContent = 'Super! ✓';
+      launchConfetti();
+      advanceTimer = setTimeout(() => nextCard(), 1600);
+    } else {
+      results.push(false);
+      card.classList.add('wrong');
+      feedback.textContent = `Nicht ganz — es ist ${c.ans}`;
+      advanceTimer = setTimeout(() => nextCard(), 2400);
+    }
+  }
+
+  function nextCard() {
+    idx++;
+    renderCard(true);
+  }
+
+  /* ════════════════════════════════
+     RESULTS
+  ════════════════════════════════ */
+  function showResults() {
+    const total = results.length;
+    const correct = results.filter(Boolean).length;
+    const pct = total > 0 ? correct / total : 0;
+
+    // Emoji + title + message
+    let emoji, title, msg;
+    if (pct === 1) {
+      emoji = '🏆'; title = 'Perfekt!';
+      msg = 'Alle richtig — du bist ein echter Mathe-Profi!';
+    } else if (pct >= 0.8) {
+      emoji = '🌟'; title = 'Mega gut!';
+      msg = 'Fast perfekt! Noch ein bisschen üben und du hast es drauf!';
+    } else if (pct >= 0.6) {
+      emoji = '😊'; title = 'Gut gemacht!';
+      msg = 'Weiter so! Mit etwas Üben wird es noch besser.';
+    } else if (pct >= 0.4) {
+      emoji = '💪'; title = 'Nicht aufgeben!';
+      msg = 'Du lernst das — mach einfach nochmal eine Runde!';
+    } else {
+      emoji = '💡'; title = 'Üben macht den Meister!';
+      msg = 'Jedes Mal wird es ein bisschen leichter. Du schaffst das!';
+    }
+
+    document.getElementById('done-emoji').textContent = emoji;
+    document.getElementById('done-title').textContent = title;
+    document.getElementById('done-msg').textContent = msg;
+
+    // Score fraction
+    document.getElementById('score-fraction').innerHTML =
+      `${correct} <span>von ${total} richtig</span>`;
+
+    // Dots
+    const dotsEl = document.getElementById('score-dots');
+    dotsEl.innerHTML = '';
+    results.forEach(ok => {
+      const d = document.createElement('div');
+      d.className = 'score-dot ' + (ok ? 'ok' : 'err');
+      d.title = ok ? 'Richtig ✓' : 'Falsch ✗';
+      dotsEl.appendChild(d);
+    });
+
+    show('screen-done');
+    if (pct === 1) launchConfetti();
+  }
+
+  /* ════════════════════════════════
+     CONFETTI
+  ════════════════════════════════ */
+  function launchConfetti() {
+    const colors = ['#e85d2f','#f5c842','#4a9e6e','#3b6dbf','#e040fb','#ff9800','#00bcd4','#e91e63'];
+    const container = document.createElement('div');
+    container.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:hidden;';
+    document.body.appendChild(container);
+
+    for (let i = 0; i < 100; i++) {
+      const p = document.createElement('div');
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      const size = 7 + Math.random() * 11;
+      const left = Math.random() * 100;
+      const delay = Math.random() * 0.7;
+      const dur = 1.5 + Math.random() * 1.4;
+      const isCircle = Math.random() > 0.4;
+      const wiggleDur = 0.4 + Math.random() * 0.4;
+
+      p.style.cssText = `
+        position:absolute;
+        top:-${size + 10}px;
+        left:${left}%;
+        width:${size}px;
+        height:${isCircle ? size : size * (0.4 + Math.random() * 0.6)}px;
+        background:${color};
+        border-radius:${isCircle ? '50%' : '2px'};
+        animation:
+          confettiFall ${dur}s ${delay}s ease-in forwards,
+          confettiWiggle ${wiggleDur}s ${delay}s ease-in-out infinite;
+      `;
+      container.appendChild(p);
+    }
+    setTimeout(() => container.remove(), 3800);
+  }
+
+  /* ════════════════════════════════
+     KEYBOARD
+  ════════════════════════════════ */
+  document.addEventListener('keydown', e => {
+    if (document.getElementById('screen-cards').classList.contains('hidden')) return;
+    if (e.key >= '0' && e.key <= '9') { e.preventDefault(); pressNum(e.key); }
+    else if (e.key === 'Backspace') { e.preventDefault(); pressNum('del'); }
+    else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pressNum('check'); }
+  });
+</script>
+</body>
+</html>
